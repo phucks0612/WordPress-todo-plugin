@@ -1,0 +1,393 @@
+<?php
+/**
+* Plugin Name: Thanh.io Post Plugin
+* Plugin URI: https://www.yourwebsiteurl.com/
+* Description: This is the very first plugin I ever created.
+* Version: 1.0
+* Author: Phan Chi Thanh
+* Author URI: Thanh.io
+**/
+
+$priority_field = 'ct_todo_priority';
+$startdate_field = 'ct_todo_start_date';
+$duedate_field = 'ct_todo_due_date';
+$status_field = 'ct_todo_status';
+
+add_filter( 'get_sample_permalink_html', function(){return '';});
+
+add_filter('manage_ct_todo_posts_columns', function ( $columns ) 
+{
+    unset($columns['date']);
+    return $columns;
+} );
+
+add_action( 'wp_enqueue_scripts', 'wpdocs_theme_name_scripts' );
+
+function wpdocs_theme_name_scripts() {
+    wp_enqueue_script( 'script', get_template_directory_uri() . '/js/example.js', array(), '1.0.0', true );
+}
+
+add_action('init', 'ct_todo_post_type', 1, 1);
+
+function ct_todo_post_type()
+{
+
+    register_post_type('ct_todo',
+                       array(
+                           'labels'      => array(
+                               'name'          => __('Todos'),
+                               'singular_name' => __('Todo'),
+                           ),
+                           'public'      => true,
+                           'has_archive' => true,
+                       )
+    );
+}
+
+add_action('add_meta_boxes', 'ct_add_todo_box');
+
+function ct_add_todo_box()
+{
+    add_meta_box(
+        'ct_todo_priority_id',           // Unique ID
+        'Priority',  // Box title
+        'ct_todo_priority_box_html',  // Content callback, must be of type callable
+        'ct_todo'                 // Post type
+    );
+
+    add_meta_box(
+        'ct_todo_startdate_id',
+        'Start Date',
+        'ct_todo_startdate_box_html',
+        'ct_todo'
+    );
+
+    add_meta_box(
+        'ct_todo_duedate_id',
+        'Due Date',
+        'ct_todo_duedate_box_html',
+        'ct_todo'
+    );
+    
+    add_meta_box(
+        'ct_todo_status_id',
+        'Status',
+        'ct_todo_status_box_html',
+        'ct_todo'
+    );
+}
+
+//----------------------------------------------------------------------------------------------------------
+
+function ct_todo_priority_box_html()
+{
+    global $priority_field, $post;
+    $value = get_post_meta($post->ID, $priority_field, true);
+    ?>
+    <label for="ct_todo_priority"><?= __('Priority: ') ?></label>
+    <select name="ct_todo_priority" id="ct_todo_priority" class="postbox">
+        <option value="None"> <?= __('Select something...')?> </option>
+        <option value="High" <?php selected($value, 'High'); ?>><?= __('High') ?></option>
+        <option value="Normal" <?php selected($value, 'Normal'); ?>><?= __('Normal') ?></option>
+        <option value="Low" <?php selected($value, 'Low'); ?>><?= __('Low') ?></option>
+    </select>
+    <?php
+}
+
+add_action('save_post', 'ct_save_todo_priority_post_data');
+
+function ct_save_todo_priority_post_data($post_id)
+{
+    global $priority_field;   
+    
+    if (array_key_exists($priority_field, $_POST)) {
+        update_post_meta(
+            $post_id,
+            $priority_field,
+            $_POST[$priority_field]
+        );
+        $temp = 4;
+        if ($_POST[$priority_field] == 'High') $temp = 1;
+        if ($_POST[$priority_field] == 'Normal') $temp = 2;
+        if ($_POST[$priority_field] == 'Low') $temp = 3;
+        update_post_meta(
+            $post_id,
+            'priority_cheat',
+            $temp
+        );
+    }
+}
+
+add_filter('manage_ct_todo_posts_columns','ct_todo_box_priority_column_head');
+
+function ct_todo_box_priority_column_head($defaults) {
+    $defaults['priority'] = __('Priority');
+    return $defaults;
+}
+
+add_filter('manage_edit-ct_todo_sortable_columns','ct_todo_priority_column');
+
+function ct_todo_priority_column($sortable_columns){
+    $sortable_columns['priority'] = 'priority_cheat';
+    return $sortable_columns;
+}
+
+add_action('pre_get_posts','ct_todo_priority_query');
+
+function ct_todo_priority_query($query) {
+    $orderby = $query->get('orderby');
+    if('priority_cheat' == $orderby) {
+        $query->set('meta_key','priority_cheat');
+        $query->set('orderby','meta_value_num');
+    }
+}
+
+add_action('manage_ct_todo_posts_custom_column','ct_todo_box_priority_column_content', 10, 2);
+
+function ct_todo_box_priority_column_content($column_name, $post_id){
+    global $priority_field;
+    if ($column_name == 'priority') {
+        $temp = get_post_meta($post_id, $priority_field, true);
+        if ($temp) {
+            esc_html_e($temp);
+        }
+        else esc_html_e('Unavailable');
+    }
+}
+//----------------------------------------------------------------------------------------------------------
+
+function ct_todo_startdate_box_html()
+{
+    global $startdate_field, $post;
+    $value = get_post_meta($post->ID, $startdate_field, true);
+    ?>
+    <html>
+    <body>
+        <?= __('Start date: ') ?> 
+        <input type="date" name="ct_todo_start_date" required id='startdateID'>
+        <script>
+            var temp = <?php echo json_encode($value); ?>;
+            if (!temp) {
+                jQuery(document).ready( function() {
+                    var now = new Date();
+                    var day = ("0" + now.getDate()).slice(-2);
+                    var month = ("0" + (now.getMonth() + 1)).slice(-2);
+                    var today = now.getFullYear()+"-"+(month)+"-"+(day);
+
+                    jQuery('#startdateID').val(today);
+                    jQuery('#startdateID').attr('min',today);
+                }); 
+            }
+            else jQuery(document).ready(jQuery('#startdateID').val(temp));
+        </script>
+    </body>
+    </html>
+    <?php
+}
+
+add_action('save_post', 'ct_save_todo_startdate_post_data');
+
+function ct_save_todo_startdate_post_data($post_id)
+{
+    global $startdate_field;  
+    
+    if (array_key_exists($startdate_field, $_POST)) {
+        update_post_meta(
+            $post_id,
+            $startdate_field,
+            $_POST[$startdate_field]
+        );
+    }
+}
+
+add_filter('manage_ct_todo_posts_columns','ct_todo_box_startdate_column_head');
+
+function ct_todo_box_startdate_column_head($defaults) {
+    $defaults['startdate'] = __('Start Date');
+    return $defaults;
+}
+
+add_action('manage_ct_todo_posts_custom_column','ct_todo_box_startdate_column_content', 10, 2);
+
+function ct_todo_box_startdate_column_content($column_name, $post_id){
+    global $startdate_field;
+    if ($column_name == 'startdate') {
+        $temp = get_post_meta($post_id, $startdate_field, true);
+        if ($temp) {
+            esc_html_e($temp);
+        }
+        else esc_html_e('Unavailable');
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------
+
+function ct_todo_duedate_box_html()
+{
+    global $duedate_field, $post;
+    $value = get_post_meta($post->ID, $duedate_field, true);
+    ?>
+    <html>
+    <body>
+        <?= __('Due date: ') ?> 
+        <input type="date" name="ct_todo_due_date" required id='duedateID'>
+        <script>
+            var temp = <?php echo json_encode($value); ?>;
+            if (!temp) {
+                jQuery(document).ready( function() {
+                    var now = new Date();
+                    var day = ("0" + now.getDate()).slice(-2);
+                    var month = ("0" + (now.getMonth() + 1)).slice(-2);
+
+                    var today = now.getFullYear()+"-"+(month)+"-"+(day);
+
+                    jQuery('#duedateID').val(today);
+                    jQuery('#duedateID').attr('min',today);
+                });
+            }
+            else jQuery(document).ready(jQuery('#duedateID').val(temp));
+        </script>
+    </body>
+    </html>
+    <?php
+}
+
+add_action('save_post', 'ct_save_todo_duedate_post_data');
+
+function ct_save_todo_duedate_post_data($post_id)
+{
+    global $duedate_field;  
+    
+    if (array_key_exists($duedate_field, $_POST)) {
+        update_post_meta(
+            $post_id,
+            $duedate_field,
+            $_POST[$duedate_field]
+        );
+    }
+}
+
+add_filter('manage_ct_todo_posts_columns','ct_todo_box_duedate_column_head');
+
+function ct_todo_box_duedate_column_head($defaults) {
+    $defaults['duedate'] = __('Due Date');
+    return $defaults;
+}
+
+add_action('manage_ct_todo_posts_custom_column','ct_todo_box_duedate_column_content', 10, 2);
+
+function ct_todo_box_duedate_column_content($column_name, $post_id){
+    global $duedate_field;
+    if ($column_name == 'duedate') {
+        $temp = get_post_meta($post_id, $duedate_field, true);
+        if ($temp) {
+            esc_html_e($temp);
+        }
+        else esc_html_e('Unavailable');
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------
+
+function ct_todo_status_box_html()
+{
+    global $status_field, $post;
+    $value = get_post_meta($post->ID, $status_field, true);
+    if ($value) {
+        ?>
+        <label for="ct_todo_status"><?= __('Status: ') ?></label>
+        <select name="ct_todo_status" id="ct_todo_status" class="postbox">
+            <option value="Pending"><?= __('Pending') ?></option>
+            <option value="Doing" <?php selected($value, 'Doing'); ?>><?= __('Doing') ?></option>
+            <option value="Done" <?php selected($value, 'Done'); ?>><?= __('Done') ?></option>
+            <option value="Overdue" <?php selected($value, 'Overdue'); ?>><?= __('Overdue') ?></option>
+        </select>
+        <?php
+    }
+    else {
+        ?>
+        <label for="ct_todo_status"><?= __('Status: ') ?></label>
+        <select name="ct_todo_status" id="ct_todo_status" class="postbox">
+            <option value="Pending"><?= __('Pending') ?></option>
+        </select>
+        <?php
+    }
+}
+
+add_action('save_post', 'ct_save_todo_status_post_data');
+
+function ct_save_todo_status_post_data($post_id)
+{
+    global $status_field;  
+    
+    if (array_key_exists($status_field, $_POST)) {
+        update_post_meta(
+            $post_id,
+            $status_field,
+            $_POST[$status_field]
+        );
+    }
+}
+
+add_filter('manage_ct_todo_posts_columns','ct_todo_box_status_column_head');
+
+function ct_todo_box_status_column_head($defaults) {
+    $defaults['status'] = __('Status');
+    return $defaults;
+}
+
+add_action('manage_ct_todo_posts_custom_column','ct_todo_box_status_column_content', 10, 2);
+
+function ct_todo_box_status_column_content($column_name, $post_id){
+    global $status_field;
+    if ($column_name == 'status') {
+        $temp = get_post_meta($post_id, $status_field, true);
+        if ($temp) {
+            esc_html_e($temp);
+        }
+        else esc_html_e('Unavailable');
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------
+
+register_activation_hook(__FILE__, 'my_activation');
+
+function my_activation() {
+    if (! wp_next_scheduled ( 'my_daily_event' )) {
+	    wp_schedule_event(time(), 'daily', 'my_daily_event');
+    }
+}
+
+add_action('my_daily_event', 'do_this_daily');
+
+function do_this_daily() {
+    $args = array('numberposts' => -1, 'post_type' => 'ct_todo', 'post_status' => 'any');
+    $posts = get_posts($args);
+    foreach ($posts as $x) {
+        $y = get_post_meta($x->ID,$duedate_field,true);
+        if ($y['ct_todo_due_date'][0] > date())
+        update_post_meta(
+            $x->ID,
+            $duedate_field,
+            'Overdue'
+        );
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------
+
+add_filter('pre_get_posts', 'posts_for_current_author');
+
+function posts_for_current_author($query) {
+    global $pagenow;
+
+    if( 'edit.php' != $pagenow || !$query->is_admin )
+        return $query;
+
+    if( !current_user_can( 'manage_options' ) ) {
+    global $user_ID;
+    $query->set('author', $user_ID );
+    }
+    return $query;
+}
