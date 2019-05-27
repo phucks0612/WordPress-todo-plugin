@@ -392,14 +392,16 @@ function ct_todo_func($atts) {
         'numberposts' => -1, 
         'post_type' => 'ct_todo', 
         'post_status' => 'any', 
-        'orderby' => $atts['order'], 
+        'orderby' => $orders, 
         'order'=> 'DESC', 
         'author'=> $u->ID,
         'meta_value'=> $status
     );
     $posts = get_posts($args);
+    $i=0;
     foreach ($posts as $post) {
-        $ans .= "1 {$post->post_title}: Date: {$post->post_date}, Status: {$post->$status_field}, Priority: {$post->$priority_field} <br>";
+        $i++;
+        $ans .= "{$i} {$post->post_title}: Date: {$post->post_date}, Status: {$post->$status_field}, Priority: {$post->$priority_field} <br>";
     }
     if (!$ans) return 'Nothing to do'; else return $ans;
 }
