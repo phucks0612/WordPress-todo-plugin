@@ -31,7 +31,6 @@ add_action('init', 'ct_todo_post_type', 1, 1);
 
 function ct_todo_post_type()
 {
-
     register_post_type('ct_todo',
                        array(
                            'labels'      => array(
@@ -58,14 +57,7 @@ function ct_add_todo_box()
     add_meta_box(
         'ct_todo_startdate_id',
         'Start Date',
-        'ct_todo_startdate_box_html',
-        'ct_todo'
-    );
-
-    add_meta_box(
-        'ct_todo_duedate_id',
-        'Due Date',
-        'ct_todo_duedate_box_html',
+        'ct_todo_date_html',
         'ct_todo'
     );
     
@@ -84,6 +76,7 @@ function ct_todo_priority_box_html()
     global $priority_field, $post;
     $value = get_post_meta($post->ID, $priority_field, true);
     ?>
+    <html>
     <label for="ct_todo_priority"><?= __('Priority: ') ?></label>
     <select name="ct_todo_priority" id="ct_todo_priority" class="postbox">
         <option value="None"> <?= __('Select something...')?> </option>
@@ -91,6 +84,7 @@ function ct_todo_priority_box_html()
         <option value="Normal" <?php selected($value, 'Normal'); ?>><?= __('Normal') ?></option>
         <option value="Low" <?php selected($value, 'Low'); ?>><?= __('Low') ?></option>
     </select>
+    </html>
     <?php
 }
 
@@ -156,40 +150,65 @@ function ct_todo_box_priority_column_content($column_name, $post_id){
 }
 //----------------------------------------------------------------------------------------------------------
 
-function ct_todo_startdate_box_html()
+function ct_todo_date_html()
 {
-    global $startdate_field, $post;
+    global $startdate_field, $duedate_field, $post;
     $value = get_post_meta($post->ID, $startdate_field, true);
     ?>
-    <html>
-    <body>
-        <?= __('Start date: ') ?> 
-        <input type="date" name="ct_todo_start_date" required id='startdateID'>
-        <script>
-            var temp = <?php echo json_encode($value); ?>;
-            if (!temp) {
-                jQuery(document).ready( function() {
-                    var now = new Date();
-                    var day = ("0" + now.getDate()).slice(-2);
-                    var month = ("0" + (now.getMonth() + 1)).slice(-2);
-                    var today = now.getFullYear()+"-"+(month)+"-"+(day);
-
-                    jQuery('#startdateID').val(today);
-                    jQuery('#startdateID').attr('min',today);
-                }); 
-            }
-            else jQuery(document).ready(jQuery('#startdateID').val(temp));
-        </script>
-    </body>
-    </html>
+    <table border="0" cellpadding="0" cellspacing="0">
+    <tr>
+        <td>
+            From:
+        </td>
+        <td>
+            <input type="text" name="ct_todo_start_date" id="txtFrom" />
+        </td>
+        <td>
+            &nbsp;
+        </td>
+        <td>
+            To:
+        </td>
+        <td>
+            <input type="text" name="ct_todo_due_date" id="txtTo" />
+        </td>
+    </tr>
+    </table>  
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6/jquery.min.js" type="text/javascript"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js" type="text/javascript"></script>
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css" rel="Stylesheet"type="text/css"/>
+    <script type="text/javascript">
+        jQuery(document).ready(function() {
+            jQuery("#txtFrom").datepicker({
+                minDate: 0,
+                numberOfMonths: 2,
+                dateFormat: 'yy/mm/dd',
+                onSelect: function (selected) {
+                    var dt = new Date(selected);
+                    dt.setDate(dt.getDate());
+                    jQuery("#txtTo").datepicker("option", "minDate", dt);
+                }
+            });
+            jQuery("#txtTo").datepicker({
+                minDate: 0,
+                numberOfMonths: 2,
+                dateFormat: 'yy/mm/dd',
+                onSelect: function (selected) {
+                    var dt = new Date(selected);
+                    dt.setDate(dt.getDate());
+                    jQuery("#txtFrom").datepicker("option", "maxDate", dt);
+                }
+            });
+        });
+    </script>
     <?php
 }
 
-add_action('save_post', 'ct_save_todo_startdate_post_data');
+add_action('save_post', 'ct_save_todo_date_post_data');
 
-function ct_save_todo_startdate_post_data($post_id)
+function ct_save_todo_date_post_data($post_id)
 {
-    global $startdate_field;  
+    global $startdate_field, $duedate_field;  
     
     if (array_key_exists($startdate_field, $_POST)) {
         update_post_meta(
@@ -198,66 +217,7 @@ function ct_save_todo_startdate_post_data($post_id)
             $_POST[$startdate_field]
         );
     }
-}
 
-add_filter('manage_ct_todo_posts_columns','ct_todo_box_startdate_column_head');
-
-function ct_todo_box_startdate_column_head($defaults) {
-    $defaults['startdate'] = __('Start Date');
-    return $defaults;
-}
-
-add_action('manage_ct_todo_posts_custom_column','ct_todo_box_startdate_column_content', 10, 2);
-
-function ct_todo_box_startdate_column_content($column_name, $post_id){
-    global $startdate_field;
-    if ($column_name == 'startdate') {
-        $temp = get_post_meta($post_id, $startdate_field, true);
-        if ($temp) {
-            esc_html_e($temp);
-        }
-        else esc_html_e('Unavailable');
-    }
-}
-
-//----------------------------------------------------------------------------------------------------------
-
-function ct_todo_duedate_box_html()
-{
-    global $duedate_field, $post;
-    $value = get_post_meta($post->ID, $duedate_field, true);
-    ?>
-    <html>
-    <body>
-        <?= __('Due date: ') ?> 
-        <input type="date" name="ct_todo_due_date" required id='duedateID'>
-        <script>
-            var temp = <?php echo json_encode($value); ?>;
-            if (!temp) {
-                jQuery(document).ready( function() {
-                    var now = new Date();
-                    var day = ("0" + now.getDate()).slice(-2);
-                    var month = ("0" + (now.getMonth() + 1)).slice(-2);
-
-                    var today = now.getFullYear()+"-"+(month)+"-"+(day);
-
-                    jQuery('#duedateID').val(today);
-                    jQuery('#duedateID').attr('min',today);
-                });
-            }
-            else jQuery(document).ready(jQuery('#duedateID').val(temp));
-        </script>
-    </body>
-    </html>
-    <?php
-}
-
-add_action('save_post', 'ct_save_todo_duedate_post_data');
-
-function ct_save_todo_duedate_post_data($post_id)
-{
-    global $duedate_field;  
-    
     if (array_key_exists($duedate_field, $_POST)) {
         update_post_meta(
             $post_id,
@@ -270,6 +230,7 @@ function ct_save_todo_duedate_post_data($post_id)
 add_filter('manage_ct_todo_posts_columns','ct_todo_box_duedate_column_head');
 
 function ct_todo_box_duedate_column_head($defaults) {
+    $defaults['startdate'] = __('Start Date');
     $defaults['duedate'] = __('Due Date');
     return $defaults;
 }
@@ -277,7 +238,15 @@ function ct_todo_box_duedate_column_head($defaults) {
 add_action('manage_ct_todo_posts_custom_column','ct_todo_box_duedate_column_content', 10, 2);
 
 function ct_todo_box_duedate_column_content($column_name, $post_id){
-    global $duedate_field;
+    global $startdate_field, $duedate_field;
+    if ($column_name == 'startdate') {
+        $temp = get_post_meta($post_id, $startdate_field, true);
+        if ($temp) {
+            esc_html_e($temp);
+        }
+        else esc_html_e('Unavailable');
+    }
+
     if ($column_name == 'duedate') {
         $temp = get_post_meta($post_id, $duedate_field, true);
         if ($temp) {
@@ -362,16 +331,21 @@ function my_activation() {
 add_action('my_daily_event', 'do_this_daily');
 
 function do_this_daily() {
+    global $status_field;
+
     $args = array('numberposts' => -1, 'post_type' => 'ct_todo', 'post_status' => 'any');
     $posts = get_posts($args);
     foreach ($posts as $x) {
         $y = get_post_meta($x->ID,$duedate_field,true);
-        if ($y['ct_todo_due_date'][0] > date())
-        update_post_meta(
-            $x->ID,
-            $duedate_field,
-            'Overdue'
-        );
+        if ($y['ct_todo_due_date'][0] > date('y/m/d')) {
+            $k = get_userdata($x->post_author);
+            update_post_meta(
+                $x->ID,
+                $status_field,
+                'Overdue'
+            );
+            wp_mail($k->user_email,'testing','HelloWorld');
+        }
     }
 }
 
@@ -386,8 +360,46 @@ function posts_for_current_author($query) {
         return $query;
 
     if( !current_user_can( 'manage_options' ) ) {
-    global $user_ID;
-    $query->set('author', $user_ID );
+        global $user_ID;
+        $query->set('author', $user_ID );
     }
     return $query;
+}
+
+//----------------------------------------------------------------------------------------------------------
+
+add_shortcode( 'todo', 'ct_todo_func' );
+
+function ct_todo_func($atts) {
+    global $priority_field, $status_field;
+    $u = wp_get_current_user();
+    if ($atts['status']) 
+        $status = explode(",", $atts['status']);
+    else 
+        $status = array('Pending','Doing','Done','Overdue');
+
+    if ($atts['order'])
+        $order = explode(",",$atts['order']);
+    else
+        $order = array('date','status');
+
+    for ($i=0; $i<count($order); $i++) {
+        if ($order[$i] == 'priority') $order[$i] = 'priority_cheat';
+        if ($order[$i] == 'status') $order[$i] = $status_field;
+    }
+
+    $args = array(
+        'numberposts' => -1, 
+        'post_type' => 'ct_todo', 
+        'post_status' => 'any', 
+        'orderby' => $atts['order'], 
+        'order'=> 'DESC', 
+        'author'=> $u->ID,
+        'meta_value'=> $status
+    );
+    $posts = get_posts($args);
+    foreach ($posts as $post) {
+        $ans .= "1 {$post->post_title}: Date: {$post->post_date}, Status: {$post->$status_field}, Priority: {$post->$priority_field} <br>";
+    }
+    if (!$ans) return 'Nothing to do'; else return $ans;
 }
