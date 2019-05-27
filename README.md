@@ -1,4 +1,4 @@
 # WordPress-todo-plugin
 A Plugin to manage and keep track of all task in the future
 
-Not guarantee under privacy. Version 0.9.1, not fully complete
+Not guarantee under privacy. Version 0.9.2, not fully complete
